@@ -1,0 +1,290 @@
+@charset "UTF-8";
+@import url(http://fonts.googleapis.com/css?family=Chivo:400,900);
+@import url(http://fonts.googleapis.com/earlyaccess/nanumpenscript.css);
+@import url(http://fonts.googleapis.com/earlyaccess/jejumyeongjo.css);
+
+html, body {
+	height: 100%;
+}
+
+body {
+	margin: 0px;
+	padding: 0px;
+	background: #e0baa4;
+	/*font-family: 'Chivo', sans-serif;*/
+	font-family: 'Jeju Myeongjo';
+	font-size: 12pt;
+	font-weight: 300;
+	color: #363636;
+}
+
+h1, h2, h3 {
+	margin: 0;
+	padding: 0;
+}
+
+p, ol, ul {
+	margin-top: 0px;
+}
+
+p {
+	line-height: 100%;
+}
+
+strong {
+}
+
+a {
+	color: #171717;
+}
+
+a:hover {
+	text-decoration: none; /*링크 아래 줄을 없애주는 역할*/
+}
+
+hr {
+	display: none;
+}
+
+/*********************************************************************************/
+/* List Styles                                                                   */
+/*********************************************************************************/
+
+	ul.style1
+	{
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	ul.style1 li
+	{
+		border-top: solid 1px #E5E5E5;
+		padding: 0.80em 0;
+	}
+
+	ul.style1 li:first-child
+	{
+		border-top: 0;
+		padding-top: 0;
+	}
+
+/* 현재 style1 쓰이는 곳 없음*/
+
+	ul.style2
+	{
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	ul.style2 li
+	{
+		border-top: solid 1px #E5E5E5;
+		padding: 0.80em 0;
+
+	}
+
+	ul.style2 li:first-child
+	{
+	  border-top: 0;
+		padding-top: 0;
+	}
+
+	/*********************************************************************************/
+	/* Heading Titles                                                                */
+	/*********************************************************************************/
+
+	.title
+	{
+		margin-bottom: 2em;
+	}
+
+	.title h2
+	{
+		font-weight: 400;
+		font-size: 1.2em;
+		/*color: #B10058;  와인색*/
+	}
+/*
+	.title .byline
+	{
+		letter-spacing: 0.15em;
+		font-weight: 400;
+		font-size: 0.90em;
+		color: #6F6F6F;
+	}
+*/
+
+/* WRAPPER */
+
+#wrapper {
+	background: #FFFFFF url(images/bg01.png) repeat;
+}
+
+.container {
+	width: 1400px;
+	margin: 0px auto;
+}
+
+.container2 {
+	width: 1200px;
+	margin: 0px auto;
+}
+
+#menu-wrapper
+{
+	background: #ad9a8e;
+}
+
+/* MENU */
+
+#menu {
+	overflow: hidden;
+	height: 200px;
+}
+
+#menu1 {
+	font-size: 2em;
+}
+
+#menu2 {
+}
+
+#menu ul {
+	margin: 0;
+	padding: 0px 0px 0px 0px;
+	list-style: none;
+	line-height: normal;
+	text-align: center;
+}
+
+#menu li {
+	display: inline-block
+}
+
+#menu a {
+	display: block;
+	letter-spacing: 1px;
+	padding: 0px 40px;
+	text-decoration: none; /*링크 아래 줄을 없애주는 역할*/
+	text-align: center;
+	text-transform: uppercase;
+	font-size: 1.2em;
+	font-weight: bold;
+	line-height: 100px;
+	border: none;
+	color: #FFF;
+}
+
+#menu a:hover, #menu .current_page_item a {
+	text-decoration: none; /*링크 아래 줄을 없애주는 역할*/
+}
+
+#menu .current_page_item a {
+}
+
+/* PAGE */
+
+#page
+{
+	position: relative;
+	overflow: hidden;
+	padding: 6em 0em 5em 0em;
+}
+
+/* CONTENT */
+
+#content
+{
+	float: right;
+	width: 790px;
+}
+
+#content2
+{
+	width: 70%;
+	margin-left:15%;
+  margin-right:15%;
+}
+
+/*********************************************************************************/
+/* Sidebar                                                                       */
+/*********************************************************************************/
+
+	#sidebar
+	{
+		float: left;
+		width: 345px;
+	}
+
+	#sidebar .title h2
+	{
+		font-size: 1.6em;
+	}
+
+	#sidebar .box1
+	{
+		margin-bottom: 3em;
+	}
+	/* box1 안 쓰임*/
+
+/*********************************************************************************/
+/* Copyright                                                                     */
+/*********************************************************************************/
+
+	#copyright
+	{
+		overflow: hidden;
+		padding: 5em 0em;
+		text-align: center;
+		height: 10px;
+	}
+
+	#copyright p
+	{
+		/*
+		letter-spacing: 0.20em;
+		text-align: center;
+		text-transform: uppercase;
+		font-size: 0.80em;*/
+		color: rgba(255,255,255,.5);
+	}
+
+	#copyright a
+	{
+		text-decoration: none; /*링크 아래 줄을 없애주는 역할*/
+		color: rgba(255,2555,255,.7);
+	}
+
+/*table 출처: https://www.w3schools.com/css/tryit.asp?filename=trycss_table_fancy */
+#custom_table
+{
+	border-collapse: collapse;
+	width: 100%;
+}
+
+#custom_table td, #custom_table th
+{
+	border: 1px solid #ddd;
+	padding: 8px;
+}
+
+#custom_table tr:nth-child(even)
+{
+	background-color: #f2f2f2;
+}
+
+#custom_table:hover
+{
+	background-color: #ddd;
+}
+
+#custom_table th
+{
+	padding-top: 12px;
+	padding-bottom: 12px;
+	text-align: left;
+	background-color: #4CAF50;
+	color: white;
+}
