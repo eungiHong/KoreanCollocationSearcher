@@ -47,11 +47,13 @@ class KoreanCollocationExtractor:
 
         print("The process is ongoing...")
         col_hash = dict()
+        every_sentence = []
         reserved_for_left = []
         reserved_for_right = []
 
         if pos_setting == "NNG":
             # NNG 추출용: 동사, 형용사, 보조 동사, 동사 파생 접미사, 긍정 지정사, 부정 지정사
+            # todo: VCP, VCN을 exclude에 넣는 게 나으려나? 날.txt 참조 // 아니면 VCN 말고 VCP만 // 지금.txt 참조
             pos_criteria_include = ["VV", "VA", "VX", "XSV", "VCP", "VCN"]  # 해당 품사를 스트링에 추가한 후 윈도우 탐색 정지
             left_pos_criteria_exclude = ["SS"]  # 해당 품사를 스트링에 추가하지 않고 윈도우 탐색 정지
             right_pos_criteria_exclude = ["SS"]
@@ -67,7 +69,12 @@ class KoreanCollocationExtractor:
             left_pos_criteria_exclude = None
             right_pos_criteria_exclude = None
 
+        # 전처리된 모든 코퍼스를 읽어서 every_sentence 리스트에 담기
         list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
 
         word_list = Tools.get_lines_utf8(word_list_path)
         for item in word_list:
@@ -80,76 +87,74 @@ class KoreanCollocationExtractor:
 
             # 각각의 형태소마다 전처리된 코퍼스 전체를 순회하면서 해당 형태소가 등장하는 문맥 추출
             flag = 0
-            for entry in list_of_files:
-                if fnmatch.fnmatch(entry, "*.txt"):
-                    line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
-                    for line in line_list:
-                        morphemes = line.split(" ")
-                        for index, morpheme in enumerate(morphemes):
-                            if flag == 1:
-                                flag = 0
-                                break
-                            if morpheme == pair:
-                                # 단어 기준 왼쪽 윈도우 탐색
-                                mover = index - 1
-                                while mover >= 0:
-                                    pre_morpheme_pos = get_pos(morphemes[mover])
-                                    if find_match(pre_morpheme_pos, left_pos_criteria_exclude) is True:
-                                        break
-                                    if find_match(pre_morpheme_pos, pos_criteria_include) is False:
-                                        reserved_for_left.append(morphemes[mover])
+            for each_file in every_sentence:
+                for line in each_file:
+                    morphemes = line.split(" ")
+                    for index, morpheme in enumerate(morphemes):
+                        if flag == 1:
+                            flag = 0
+                            break
+                        if morpheme == pair:
+                            # 형태소 기준 왼쪽 윈도우 탐색
+                            mover = index - 1
+                            while mover >= 0:
+                                pre_morpheme_pos = get_pos(morphemes[mover])
+                                if find_match(pre_morpheme_pos, left_pos_criteria_exclude) is True:
+                                    break
+                                if find_match(pre_morpheme_pos, pos_criteria_include) is False:
+                                    reserved_for_left.append(morphemes[mover])
 
-                                        # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
-                                        # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
-                                        if get_morph(pair) == get_morph(morphemes[mover]):
-                                            flag = 1
+                                    # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
+                                    # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
+                                    if get_morph(pair) == get_morph(morphemes[mover]):
+                                        flag = 1
+                                else:
+                                    reserved_for_left.append(morphemes[mover])
+                                    break
+                                mover -= 1
+
+                            # 형태소 기준 오른쪽 윈도우 탐색
+                            mover = index + 1
+                            while mover <= len(morphemes) - 1:
+                                post_morpheme_pos = get_pos(morphemes[mover])
+                                if find_match(post_morpheme_pos, right_pos_criteria_exclude) is True:
+                                    break
+                                if find_match(post_morpheme_pos, pos_criteria_include) is False:
+                                    reserved_for_right.append(morphemes[mover])
+
+                                    # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
+                                    # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
+                                    if get_morph(pair) == get_morph(morphemes[mover]):
+                                        flag = 1
+                                else:
+                                    reserved_for_right.append(morphemes[mover])
+                                    break
+                                mover += 1
+
+                            # 스트링 만들기  ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
+                            if len(reserved_for_left) > 0 or len(reserved_for_right) > 0:
+                                var_gram = ""  # variable-gram, derived from bi-gram or tri-gram
+                                for morph in reversed(reserved_for_left):
+                                    var_gram += morph + " + "  # ex) 꿀/NNG +
+                                if len(reserved_for_right) == 0:
+                                    var_gram += pair  # ex) 꿀/NNG + 먹/VV
+                                else:
+                                    var_gram += pair + " + "  # ex) 꿀/NNG + 먹/VV +
+                                for idx, morph in enumerate(reserved_for_right):
+                                    if idx == len(reserved_for_right) - 1:
+                                        var_gram += morph  # ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
                                     else:
-                                        reserved_for_left.append(morphemes[mover])
-                                        break
-                                    mover -= 1
+                                        var_gram += morph + " + "  # ex) 꿀/NNG + 먹/VV + 은/ETM +
 
-                                # 단어 기준 오른쪽 윈도우 탐색
-                                mover = index + 1
-                                while mover <= len(morphemes) - 1:
-                                    post_morpheme_pos = get_pos(morphemes[mover])
-                                    if find_match(post_morpheme_pos, right_pos_criteria_exclude) is True:
-                                        break
-                                    if find_match(post_morpheme_pos, pos_criteria_include) is False:
-                                        reserved_for_right.append(morphemes[mover])
+                                if var_gram in col_hash:
+                                    col_hash[var_gram] += 1
+                                else:
+                                    col_hash[var_gram] = 1
 
-                                        # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
-                                        # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
-                                        if get_morph(pair) == get_morph(morphemes[mover]):
-                                            flag = 1
-                                    else:
-                                        reserved_for_right.append(morphemes[mover])
-                                        break
-                                    mover += 1
+                            reserved_for_left.clear()
+                            reserved_for_right.clear()
 
-                                # 스트링 만들기  ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
-                                if len(reserved_for_left) > 0 or len(reserved_for_right) > 0:
-                                    var_gram = ""  # variable-gram, derived from bi-gram or tri-gram
-                                    for morph in reversed(reserved_for_left):
-                                        var_gram += morph + " + "  # ex) 꿀/NNG +
-                                    if len(reserved_for_right) == 0:
-                                        var_gram += pair  # ex) 꿀/NNG + 먹/VV
-                                    else:
-                                        var_gram += pair + " + "  # ex) 꿀/NNG + 먹/VV +
-                                    for idx, morph in enumerate(reserved_for_right):
-                                        if idx == len(reserved_for_right) - 1:
-                                            var_gram += morph  # ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
-                                        else:
-                                            var_gram += morph + " + "  # ex) 꿀/NNG + 먹/VV + 은/ETM +
-
-                                    if var_gram in col_hash:
-                                        col_hash[var_gram] += 1
-                                    else:
-                                        col_hash[var_gram] = 1
-
-                                reserved_for_left.clear()
-                                reserved_for_right.clear()
-
-            # 빈도 수 기준으로 소팅
+            # 빈도 수가 높은 순서로 정렬
             sorted_hash = sorted(col_hash.items(), key=operator.itemgetter(1))
 
             if pos_setting == "VV" or pos_setting == "VA":
