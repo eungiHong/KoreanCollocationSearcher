@@ -12,6 +12,9 @@ KoreanCollocationSearcher
     find_collocation_with_variable_window_at_once
     get_pos_statistics
     
+    # 연어 추출 보조
+    build_tag_dictionary
+    
     # 전처리
     pre_process
     pre_process_with_raw_text
@@ -34,22 +37,25 @@ class KoreanCollocationExtractor:
         self.write_path = write_path
 
         self.sentence_marker = "^B"
-
         # 태그 정보 - <head>: 제목, <p>: 본문, <l>: 시
         # 추가하지 않은 태그: <author>
         self.end_of_sentence_marker = "^</head>$|^</p>$|^</l>$"
+
+        self.tag_dict = dict()
 
     # 가변 윈도우로 한 번에 collocation 추출
     # word_list_path: 추출하고자 하는 품사의 출현빈도 파일 (POS_출현빈도.txt)
     # pos_setting: 추출하고자 하는 품사
     # freq_setting: 설정 빈도수 이상으로만 추출
-    def find_collocation_with_variable_window_at_once(self, word_list_path, pos_setting, freq_setting):
+    # tag_conversion: 태그 변환 여부 (NNG -> 명사) 설정, tag_conversion == 1이면 변환
+    def find_collocation_with_variable_window_at_once(self, word_list_path, pos_setting, freq_setting, tag_conversion):
 
         print("The process is ongoing...")
         col_hash = dict()
         every_sentence = []
         reserved_for_left = []
         reserved_for_right = []
+        self.build_tag_dictionary()
 
         if pos_setting == "NNG":
             # NNG 추출용: 동사, 형용사, 보조 동사, 동사 파생 접미사, 긍정 지정사, 부정 지정사
@@ -95,6 +101,7 @@ class KoreanCollocationExtractor:
                             flag = 0
                             break
                         if morpheme == pair:
+
                             # 형태소 기준 왼쪽 윈도우 탐색
                             mover = index - 1
                             while mover >= 0:
@@ -131,15 +138,31 @@ class KoreanCollocationExtractor:
                                     break
                                 mover += 1
 
+                            # 태그 변환  ex) NNG -> 명사
+                            if tag_conversion == 1:
+                                for idx, value in enumerate(reserved_for_left):
+                                    tag = get_pos(value)
+                                    tag = self.tag_dict[tag]
+                                    reserved_for_left[idx] = get_morph(value) + "/" + tag
+
+                                for idx, value in enumerate(reserved_for_right):
+                                    tag = get_pos(value)
+                                    tag = self.tag_dict[tag]
+                                    reserved_for_right[idx] = get_morph(value) + "/" + tag
+
+                                tag = get_pos(morpheme)
+                                tag = self.tag_dict[tag]
+                                morpheme = get_morph(morpheme) + "/" + tag
+
                             # 스트링 만들기  ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
                             if len(reserved_for_left) > 0 or len(reserved_for_right) > 0:
                                 var_gram = ""  # variable-gram, derived from bi-gram or tri-gram
                                 for morph in reversed(reserved_for_left):
                                     var_gram += morph + " + "  # ex) 꿀/NNG +
                                 if len(reserved_for_right) == 0:
-                                    var_gram += pair  # ex) 꿀/NNG + 먹/VV
+                                    var_gram += morpheme  # ex) 꿀/NNG + 먹/VV
                                 else:
-                                    var_gram += pair + " + "  # ex) 꿀/NNG + 먹/VV +
+                                    var_gram += morpheme + " + "  # ex) 꿀/NNG + 먹/VV +
                                 for idx, morph in enumerate(reserved_for_right):
                                     if idx == len(reserved_for_right) - 1:
                                         var_gram += morph  # ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
@@ -182,7 +205,8 @@ class KoreanCollocationExtractor:
                 for line in line_list:
                     morphemes = line.split(" ")
                     for index, pair in enumerate(morphemes):
-                        split_morpheme_and_tag = pair.split("/")
+                        # todo: rsplit, 기존에 뽑은 거하고 얼마나 다른지 확인
+                        split_morpheme_and_tag = pair.rsplit("/", 1)
 
                         try:  # 빈 라인, 코퍼스 자체 오류 (예: /SF) 때문에 삽입
                             if split_morpheme_and_tag[1] == pos:
@@ -199,6 +223,19 @@ class KoreanCollocationExtractor:
         for term in reversed(sorted_hash):
             w_file.write(str(term[0]) + "\t" + str(term[1]) + "\n")
         w_file.close()
+
+    def build_tag_dictionary(self):
+
+        tag_path = "../data/태그 변환용 파일.txt"
+        lines = Tools.get_lines_utf8(tag_path)
+        for line in lines:
+            tag_pair = line.split("\t")
+            self.tag_dict[tag_pair[0]] = tag_pair[1]
+
+        # for i in self.tag_dict:
+            # print(i, self.tag_dict[i])
+
+        # print(self.tag_dict["NNG"])
 
     # 입력 파일: raw_data/세종_현대문어_형태분석_말뭉치 / 출력 파일: preprocessed/현대문어_형태분석_전처리(형태소만 추출)
     def pre_process(self):
@@ -323,7 +360,7 @@ class KoreanCollocationExtractor:
 def get_morph(morpheme):
     morph = ""
     try:
-        split_morpheme_and_tag = morpheme.split("/")
+        split_morpheme_and_tag = morpheme.rsplit("/", 1)
         morph = split_morpheme_and_tag[0]
     except IndexError:
         return morph
@@ -335,7 +372,7 @@ def get_morph(morpheme):
 def get_pos(morpheme):
     pos = ""
     try:
-        split_morpheme_and_tag = morpheme.split("/")
+        split_morpheme_and_tag = morpheme.rsplit("/", 1)
         pos = split_morpheme_and_tag[1]
     except IndexError:
         return pos
