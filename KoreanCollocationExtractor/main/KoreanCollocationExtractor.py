@@ -11,9 +11,12 @@ KoreanCollocationSearcher
     # 연어 추출
     find_collocation_with_variable_window_at_once
     get_pos_statistics
+    collect_examples
     
     # 연어 추출 보조
     build_tag_dictionary
+    find_tagging_error
+    find_duplication
     
     # 전처리
     pre_process
@@ -39,6 +42,7 @@ class KoreanCollocationExtractor:
         self.sentence_marker = "^B"
         # 태그 정보 - <head>: 제목, <p>: 본문, <l>: 시
         # 추가하지 않은 태그: <author>
+        # todo: author도 추가할 필요 있음 - 기자/NNG + 짧/VA + 은/ETM + 소식/NNG
         self.end_of_sentence_marker = "^</head>$|^</p>$|^</l>$"
 
         self.tag_dict = dict()
@@ -50,7 +54,6 @@ class KoreanCollocationExtractor:
     # tag_conversion: 태그 변환 여부 (NNG -> 명사) 설정, tag_conversion == 1이면 변환
     def find_collocation_with_variable_window_at_once(self, word_list_path, pos_setting, freq_setting, tag_conversion):
 
-        print("The process is ongoing...")
         col_hash = dict()
         every_sentence = []
         reserved_for_left = []
@@ -142,13 +145,19 @@ class KoreanCollocationExtractor:
                             if tag_conversion == 1:
                                 for idx, value in enumerate(reserved_for_left):
                                     tag = get_pos(value)
-                                    tag = self.tag_dict[tag]
-                                    reserved_for_left[idx] = get_morph(value) + "/" + tag
+                                    try:
+                                        tag = self.tag_dict[tag]
+                                        reserved_for_left[idx] = get_morph(value) + "/" + tag
+                                    except KeyError:
+                                        print(value + "\n---")
 
                                 for idx, value in enumerate(reserved_for_right):
                                     tag = get_pos(value)
-                                    tag = self.tag_dict[tag]
-                                    reserved_for_right[idx] = get_morph(value) + "/" + tag
+                                    try:
+                                        tag = self.tag_dict[tag]
+                                        reserved_for_right[idx] = get_morph(value) + "/" + tag
+                                    except KeyError:
+                                        print(value + "\n---")
 
                                 tag = get_pos(morpheme)
                                 tag = self.tag_dict[tag]
@@ -205,10 +214,9 @@ class KoreanCollocationExtractor:
                 for line in line_list:
                     morphemes = line.split(" ")
                     for index, pair in enumerate(morphemes):
-                        # todo: rsplit, 기존에 뽑은 거하고 얼마나 다른지 확인
                         split_morpheme_and_tag = pair.rsplit("/", 1)
 
-                        try:  # 빈 라인, 코퍼스 자체 오류 (예: /SF) 때문에 삽입
+                        try:  # 빈 라인 때문에 삽입
                             if split_morpheme_and_tag[1] == pos:
                                 count += 1
                                 morpheme = split_morpheme_and_tag[0]
@@ -224,6 +232,73 @@ class KoreanCollocationExtractor:
             w_file.write(str(term[0]) + "\t" + str(term[1]) + "\n")
         w_file.close()
 
+    # 특정 연어가 등장하는 예문 수집
+    # self.corpus_directory_path: preprocessed/현대문어_형태분석_전처리(원문 및 형태소 추출)
+    # query_path
+    # write_path: data/examples
+    def collect_examples(self, query_path):
+
+        examples = []
+        every_sentence = []
+        list_of_collocations = []
+
+        # 모든 문장 준비
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
+
+        # 연어 목록 준비
+        file = open(query_path, "r", encoding="utf-8")
+        for idx, line in enumerate(file):
+            if idx == 50:
+                break
+            if line.endswith("\n"):
+                line = line.strip("\n")
+            collocation = line.split("\t")[0]
+            list_of_collocations.append(collocation)
+        file.close()
+
+        for idx, collocation in enumerate(list_of_collocations):
+            collocation = Tools.add_backslash(collocation)
+            # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
+            # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
+            re_string = r"(.* " + collocation + "|^" + collocation + ").*"
+            regex = re.compile(re_string)
+
+            for each_file in every_sentence:
+                for line in each_file:
+                    line_pair = line.split("\t")
+                    raw_text = line_pair[0]
+                    analyzed_text = line_pair[1]
+                    if regex.match(analyzed_text):
+                        examples.append(raw_text)
+
+            write_path = self.write_path + "/" + str(idx) + ".txt"
+            w_file = open(write_path, "w", encoding="utf-8")
+
+            for example in examples:
+                w_file.write(example + "\n")
+            w_file.close()
+
+            examples.clear()
+
+    # 문장이 중복되는 세종 코퍼스 원본 파일 찾기 - 예를 들어, BTJO0443에서는 같은 글이 4번이나 반복됨
+    # todo: BTJO0443 글 하나만 남기고 나머지 3개는 없애야 함
+    # 입력 파일: 현대문어_형태분석_전처리(원문만 추출)
+    # target_sentence: 중복 여부를 알고 있는 문장
+    def find_duplication(self, target_sentence):
+
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                for line in line_list:
+                    if line == target_sentence:
+                        print(entry)
+
+    # 태그 변환(NNG -> 명사)용 리스트 업
     def build_tag_dictionary(self):
 
         tag_path = "../data/태그 변환용 파일.txt"
@@ -232,10 +307,25 @@ class KoreanCollocationExtractor:
             tag_pair = line.split("\t")
             self.tag_dict[tag_pair[0]] = tag_pair[1]
 
-        # for i in self.tag_dict:
-            # print(i, self.tag_dict[i])
+    # 세종 코퍼스 태깅 오류 찾기
+    # 입력 파일: 현대문어_형태분석_전처리(형태소만 추출)
+    def find_tagging_error(self):
 
-        # print(self.tag_dict["NNG"])
+        error_list = ["의/JG", "鳥)나", "杖子)를"]
+        error_list2 = ["NG", "NNGG", "EEC", "JKSS"]
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                for line in line_list:
+                    morphemes = line.split(" ")
+                    for morpheme in morphemes:
+                        for element in error_list:
+                            if morpheme == element:
+                                print(element + " -> " + entry)
+                        for element in error_list2:
+                            if get_pos(morpheme) == element:
+                                print(element + " -> " + entry)
 
     # 입력 파일: raw_data/세종_현대문어_형태분석_말뭉치 / 출력 파일: preprocessed/현대문어_형태분석_전처리(형태소만 추출)
     def pre_process(self):
@@ -299,13 +389,13 @@ class KoreanCollocationExtractor:
                             w_file.write(whole_sentence_raw[i])
                             if i < len(whole_sentence_raw) - 1:
                                 w_file.write(" ")
-                        w_file.write("\n")
+                        w_file.write("\t")
 
                         for i in range(0, len(whole_sentence_analyzed)):
                             w_file.write(whole_sentence_analyzed[i])
                             if i < len(whole_sentence_analyzed) - 1:
-                                w_file.write(" ")
-                        w_file.write("\n\n")
+                                w_file.write(" + ")
+                        w_file.write("\n")
 
                         whole_sentence_raw.clear()
                         whole_sentence_analyzed.clear()  # 형태소 분석 정보용 리스트 초기화
@@ -360,8 +450,9 @@ class KoreanCollocationExtractor:
 def get_morph(morpheme):
     morph = ""
     try:
-        split_morpheme_and_tag = morpheme.rsplit("/", 1)
-        morph = split_morpheme_and_tag[0]
+        # split_morpheme_and_tag = morpheme.rsplit("/", 1)
+        # morph = split_morpheme_and_tag[0]
+        morph = morpheme.rsplit("/", 1)[0]
     except IndexError:
         return morph
 
@@ -372,8 +463,9 @@ def get_morph(morpheme):
 def get_pos(morpheme):
     pos = ""
     try:
-        split_morpheme_and_tag = morpheme.rsplit("/", 1)
-        pos = split_morpheme_and_tag[1]
+        # split_morpheme_and_tag = morpheme.rsplit("/", 1)
+        # pos = split_morpheme_and_tag[1]
+        pos = morpheme.rsplit("/", 1)[1]
     except IndexError:
         return pos
 
