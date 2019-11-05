@@ -1,0 +1,14 @@
+현대문어_형태분석_말뭉치
+
+파일명	라인	수정 전	수정 후
+BTBF0270	1780	호두/NNGG	호두/NNG
+BTBA0233	56342	제안/NG	제안/NNG
+BTBA0233	71501	게/EEC	게/EC
+BTAE0205	32305	의/JG	의/JKG
+BTHO0432	36731	충조(　鳥)나	충조나
+BTHO0432	36831	주장자(　杖子)를	주장자/NNG + (/SS + 　/SW + 杖子/SH + )/SS + 를/JKO	주장자를	주장자를	주장자/NNG + 를/JKO
+BTBG0273	9902	판결/NG	판결/NNG
+BTAE0206	41793	퇴임/NNGG	퇴임/NNG
+BTAE0202	44228	고령/NG	고령/NNG
+BTAE0203	5126	가/JKSS	가/JKS
+
