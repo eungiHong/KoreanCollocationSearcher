@@ -71,10 +71,17 @@ def get_lines_utf16(file_path):
     return line_list
 
 
-def write_text(file_path, list_of_lines):
+def write_lines_utf8(file_path, list_of_lines):
     file = open(file_path, "w", encoding="utf-8")
     for line in list_of_lines:
-        file.write(line)
+        file.write(line + "\n")
+    file.close()
+
+
+def write_lines_utf16(file_path, list_of_lines):
+    file = open(file_path, "w", encoding="utf-16")
+    for line in list_of_lines:
+        file.write(line + "\n")
     file.close()
 
 
@@ -82,7 +89,7 @@ def write_again_in_reverse_order(file_path, write_path):
     line_list = get_lines_utf8(file_path)
     file = open(write_path, "w", encoding="utf-8")
     for line in reversed(line_list):
-        file.write(line)
+        file.write(line + "\n")
     file.close()
 
 
@@ -92,3 +99,14 @@ def write_again_in_reverse_order_at_once(dir_path):
         if fnmatch.fnmatch(entry, "*.txt"):
             temp = entry.rstrip(".txt")
             write_again_in_reverse_order(dir_path + "/" + entry, dir_path + "/" + temp + "_new.txt")
+
+
+# python string은 immutable하므로 새로운 스트링 생성해야.
+def add_backslash(string):
+    new_string = ""
+    for char in string:
+        if char == '+':
+            new_string += r"\+"
+        else:
+            new_string += char
+    return new_string
