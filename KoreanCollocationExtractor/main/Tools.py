@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import re
 
 from konlpy.tag import Kkma
 

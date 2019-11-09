@@ -2,6 +2,7 @@ import fnmatch
 import operator
 import os
 import re
+import numpy as np
 
 import Tools
 
@@ -11,12 +12,14 @@ KoreanCollocationSearcher
     # 연어 추출
     find_collocation_with_variable_window_at_once
     get_pos_statistics
+    collect_examples_at_once_different_allocation
+    collect_examples_at_once
     collect_examples
     
     # 연어 추출 보조
+    find_duplication
     build_tag_dictionary
     find_tagging_error
-    find_duplication
     
     # 전처리
     pre_process
@@ -43,7 +46,7 @@ class KoreanCollocationExtractor:
         # 태그 정보 - <head>: 제목, <p>: 본문, <l>: 시
         # 추가하지 않은 태그: <author>
         # todo: author도 추가할 필요 있음 - 기자/NNG + 짧/VA + 은/ETM + 소식/NNG
-        self.end_of_sentence_marker = "^</head>$|^</p>$|^</l>$"
+        self.end_of_sentence_marker = "^</head>$|^</p>$|^</l>$|^</author>$"
 
         self.tag_dict = dict()
 
@@ -232,6 +235,175 @@ class KoreanCollocationExtractor:
             w_file.write(str(term[0]) + "\t" + str(term[1]) + "\n")
         w_file.close()
 
+    def collect_examples_at_once_numpy(self, collocation_path):
+
+        # examples = []
+        every_sentence = []
+        # list_of_collocations = []
+
+        # 모든 문장 준비
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
+
+        list_of_files = os.listdir(collocation_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                file = open(collocation_path + "/" + entry, "r", encoding="utf-8")
+
+                list_of_collocations = []
+
+                for idx, line in enumerate(file):
+                    if idx == 50:
+                        break
+                    if line.endswith("\n"):
+                        line = line.strip("\n")
+                    collocation = line.split("\t")[0]
+                    list_of_collocations.append(collocation)
+                file.close()
+
+                write_dir = self.write_path + "/" + entry.rstrip(".txt")
+                os.mkdir(write_dir)
+
+                for idx, collocation in enumerate(list_of_collocations):
+                    collocation = Tools.add_backslash(collocation)
+                    # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
+                    # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
+                    re_string = r"(.* " + collocation + "|^" + collocation + ").*"
+                    regex = re.compile(re_string)
+                    examples = []
+
+                    for each_file in every_sentence:
+                        for line in each_file:
+                            line_pair = line.split("\t")
+                            raw_text = line_pair[0]
+                            analyzed_text = line_pair[1]
+                            if regex.match(analyzed_text):
+                                examples.append(raw_text)
+
+                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
+                    w_file = open(write_path, "w", encoding="utf-8")
+
+                    for example in examples:
+                        w_file.write(example + "\n")
+                    w_file.close()
+
+                    # examples.clear()
+                # list_of_collocations.clear()
+
+    def collect_examples_at_once_different_allocation(self, collocation_path):
+
+        # examples = []
+        every_sentence = []
+        # list_of_collocations = []
+
+        # 모든 문장 준비
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
+
+        list_of_files = os.listdir(collocation_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                file = open(collocation_path + "/" + entry, "r", encoding="utf-8")
+                list_of_collocations = []
+
+                for idx, line in enumerate(file):
+                    if idx == 50:
+                        break
+                    if line.endswith("\n"):
+                        line = line.strip("\n")
+                    collocation = line.split("\t")[0]
+                    list_of_collocations.append(collocation)
+                file.close()
+
+                write_dir = self.write_path + "/" + entry.rstrip(".txt")
+                os.mkdir(write_dir)
+
+                for idx, collocation in enumerate(list_of_collocations):
+                    collocation = Tools.add_backslash(collocation)
+                    # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
+                    # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
+                    re_string = r"(.* " + collocation + "|^" + collocation + ").*"
+                    regex = re.compile(re_string)
+                    examples = []
+
+                    for each_file in every_sentence:
+                        for line in each_file:
+                            line_pair = line.split("\t")
+                            raw_text = line_pair[0]
+                            analyzed_text = line_pair[1]
+                            if regex.match(analyzed_text):
+                                examples.append(raw_text)
+
+                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
+                    w_file = open(write_path, "w", encoding="utf-8")
+
+                    for example in examples:
+                        w_file.write(example + "\n")
+                    w_file.close()
+
+                    # examples.clear()
+                # list_of_collocations.clear()
+
+    def collect_examples_at_once(self, collocation_path):
+
+        examples = []
+        every_sentence = []
+        list_of_collocations = []
+
+        # 모든 문장 준비
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
+
+        list_of_files = os.listdir(collocation_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                file = open(collocation_path + "/" + entry, "r", encoding="utf-8")
+                for idx, line in enumerate(file):
+                    if idx == 50:
+                        break
+                    if line.endswith("\n"):
+                        line = line.strip("\n")
+                    collocation = line.split("\t")[0]
+                    list_of_collocations.append(collocation)
+                file.close()
+
+                write_dir = self.write_path + "/" + entry.rstrip(".txt")
+                os.mkdir(write_dir)
+
+                for idx, collocation in enumerate(list_of_collocations):
+                    collocation = Tools.add_backslash(collocation)
+                    # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
+                    # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
+                    re_string = r"(.* " + collocation + "|^" + collocation + ").*"
+                    regex = re.compile(re_string)
+
+                    for each_file in every_sentence:
+                        for line in each_file:
+                            line_pair = line.split("\t")
+                            raw_text = line_pair[0]
+                            analyzed_text = line_pair[1]
+                            if regex.match(analyzed_text):
+                                examples.append(raw_text)
+
+                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
+                    w_file = open(write_path, "w", encoding="utf-8")
+
+                    for example in examples:
+                        w_file.write(example + "\n")
+                    w_file.close()
+
+                    examples.clear()
+                list_of_collocations.clear()
+
     # 특정 연어가 등장하는 예문 수집
     # self.corpus_directory_path: preprocessed/현대문어_형태분석_전처리(원문 및 형태소 추출)
     # query_path
@@ -285,7 +457,6 @@ class KoreanCollocationExtractor:
             examples.clear()
 
     # 문장이 중복되는 세종 코퍼스 원본 파일 찾기 - 예를 들어, BTJO0443에서는 같은 글이 4번이나 반복됨
-    # todo: BTJO0443 글 하나만 남기고 나머지 3개는 없애야 함
     # 입력 파일: 현대문어_형태분석_전처리(원문만 추출)
     # target_sentence: 중복 여부를 알고 있는 문장
     def find_duplication(self, target_sentence):
