@@ -34,9 +34,12 @@
 
 					<?php
 					$query = $_POST["user_query"];
-					$data = array();
+					$collocation_data = array();
+					$example_data = array();
+					$max_display = 50;
 
-					$dir_path = "../data";
+					# 연어를 추출해 놓은 파일 중에 검색어가 있는지 확인
+					$dir_path = "../data/collocations";
 					$dir_handle = opendir($dir_path."/");
 					$flag = 0;
 					while (false !== ($entry = readdir($dir_handle))) {
@@ -45,49 +48,82 @@
 							break;
 						}
 					}
-					closedir($dir_handle);
+					closedir($dir_handle); ?>
 
+					<?php
 					$target_path = $dir_path."/".$query.".txt";
-					if ($flag == 1) {
+					if ($flag == 1) :
+
+						# 파일을 읽어 연어 목록 50개 가져오기
 						$file = fopen($target_path, "r");
 						$count = 0;
 						while (!feof($file)) {
 							$count += 1;
 							$line = fgets($file);
 							$col_and_freq = explode("\t", $line);
-							$data[] = $col_and_freq;
-							# array_push($data, $col_and_freq);
-							if ($count == 100) {
+							$collocation_data[] = $col_and_freq;
+							# array_push($collocation_data, $col_and_freq);
+							if ($count == $max_display) {
 								break;
 							}
 						}
-						fclose($file);
-					} else {
-						echo "검색 결과가 없습니다.<br><br>";
-					}
+						fclose($file); ?>
 
-					?>
-					<table id="custom_table">
-						<tr>
-							<th>번호</th>
-							<th>연어</th>
-							<th>빈도수</th>
-						</tr>
-						<tr>
-							<?php $count = 0;
-							foreach($data as $row) :
-							$count += 1 ?>
-							<td><?php echo $count; ?></td>
-							<td><?php echo $row[0]; ?></td>
-							<td><?php echo $row[1]; ?></td>
-						</tr>
-						<?php endforeach; ?>
-					</table>
+						<?php
+						# 각 연어당 예시 50개 가져오기
+						$dir_path = "../data/examples/쓰다";
+						for ($cnt = 0; $cnt < $max_display; $cnt++) {
+							$file = fopen($dir_path."/".$cnt.".txt", "r");
+							$count = 0;
+							$example_list = array();
+							while (!feof($file)) {
+								$count += 1;
+								$line = fgets($file);
+								$example_list[] = $line;
+								if ($count == $max_display) {
+									break;
+								}
+							}
+							fclose($file);
+							$example_data[] = $example_list;
+						} ?>
+
+						<!-- 테이블 전시 -->
+						<table id="custom_table">
+							<tr>
+								<th>번호</th>
+								<th>연어</th>
+								<th>빈도수</th>
+							</tr>
+							<tr>
+								<?php $count = 0;
+								foreach($collocation_data as $row) :
+								$count += 1 ?>
+								<!-- 첫 번째 열: 번호 -->
+								<td><?php echo $count; ?></td>
+								<!-- 두 번째 열: 연어 및 그 예시 -->
+								<td>
+									<details>
+										<summary><?php echo $row[0]; ?></summary>
+										<?php foreach($example_data[$count] as $example) : ?>
+											<li><?php echo $example; ?></li>
+										<?php endforeach; ?>
+									</details>
+								</td>
+								<!-- 세 번째 열: 빈도수 -->
+								<td><?php echo $row[1]; ?></td>
+							</tr>
+							<?php endforeach; ?>
+						</table>
+
+					<?php else : echo "검색 결과가 없습니다.<br><br>"; ?>
+					<?php endif; ?>
+
 				</div>
 			</div>
 		</div>
 		<div id="copyright" class="container">
-	    <p>&copy; Fernando. All rights reserved. | Design by <a href="http://templated.co" rel="nofollow">TEMPLATED</a>.</p>
+	    <p>&copy; ehong. All rights reserved. | Design by <a href="http://templated.co" rel="nofollow">TEMPLATED</a>.</p>
 	  </div>
 </body>
 </html>
