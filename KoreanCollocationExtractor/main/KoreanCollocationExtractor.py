@@ -2,7 +2,6 @@ import fnmatch
 import operator
 import os
 import re
-import numpy as np
 
 import Tools
 
@@ -10,11 +9,12 @@ import Tools
 KoreanCollocationSearcher
 
     # 연어 추출
+    find_collocation_at_once_with_examples
     find_collocation_with_variable_window_at_once
     get_pos_statistics
-    collect_examples_at_once_different_allocation
-    collect_examples_at_once
-    collect_examples
+    collect_examples_at_once_different_allocation // deprecated
+    collect_examples_at_once // deprecated
+    collect_examples // deprecated
     
     # 연어 추출 보조
     find_duplication
@@ -36,25 +36,215 @@ find_match
 
 class KoreanCollocationExtractor:
 
-    # corpus_directory_path: preprocessed/현대문어_형태분석_전처리(형태소만 추출)
-    # write_path: results/POS (빈도수 n 이상)
     def __init__(self, corpus_directory_path, write_path):
         self.corpus_directory_path = corpus_directory_path
         self.write_path = write_path
 
+        self.bibl = ".*<bibl>$"
+        self.title = "^\t\t\t\t<title>.*"
         self.sentence_marker = "^B"
         # 태그 정보 - <head>: 제목, <p>: 본문, <l>: 시
-        # 추가하지 않은 태그: <author>
-        # todo: author도 추가할 필요 있음 - 기자/NNG + 짧/VA + 은/ETM + 소식/NNG
+        # author를 추가한 이유 - 기자/NNG + 짧/VA + 은/ETM + 소식/NNG
         self.end_of_sentence_marker = "^</head>$|^</p>$|^</l>$|^</author>$"
 
         self.tag_dict = dict()
+
+    # 가변 윈도우로 한 번에 collocation 추출 및 examples 추출
+    # word_list_path: 추출하고자 하는 품사의 출현빈도 파일 (POS_출현빈도.txt)
+    # example_path: 각 단어의 연어에 대한 예시를 담을 폴더
+    # pos_setting: 추출하고자 하는 품사
+    # freq_setting: 설정 빈도수 이상으로만 추출
+    # tag_conversion: 태그 변환 여부 (NNG -> 명사) 설정, tag_conversion == 1이면 변환
+    # self.corpus_directory_path: preprocessed/현대문어_형태분석_전처리(원문 및 형태소 추출)
+    # self.write_path: results/POS (빈도수 n 이상)
+    def find_collocation_at_once_with_examples(self, word_list_path, example_path, pos_setting, freq_setting, tag_conversion):
+
+        every_sentence = []
+        reserved_for_left = []
+        reserved_for_right = []
+
+        if pos_setting == "NNG":
+            # NNG 추출용: 동사, 형용사, 보조 동사, 동사 파생 접미사, 긍정 지정사, 부정 지정사
+            # todo: VCP, VCN을 exclude에 넣는 게 나으려나? 날.txt 참조 // 아니면 VCN 말고 VCP만 // 지금.txt 참조
+            pos_criteria_include = ["VV", "VA", "VX", "XSV", "VCP", "VCN"]  # 해당 품사를 스트링에 추가한 후 윈도우 탐색 정지
+            left_pos_criteria_exclude = ["SS"]  # 해당 품사를 스트링에 추가하지 않고 윈도우 탐색 정지
+            right_pos_criteria_exclude = ["SS"]
+
+        elif pos_setting == "VV" or pos_setting == "VA":
+            # VV, VA 추출용: 일반 명사, 고유 명사, 의존 명사
+            # pos_criteria_include = ["NNG", "NNP", "NNB"] # 세종용
+            pos_criteria_include = ["NNG", "NNP", "NNB", "NNM"]  # 꼬꼬마용 # 해당 품사를 스트링에 추가한 후 윈도우 탐색 정지
+            left_pos_criteria_exclude = ["SS"]  # 해당 품사를 스트링에 추가하지 않고 윈도우 탐색 정지
+            # EF(종결어미)도 추가? ~ㄴ다, ~다 없앨 수 있으나, '가자'에 '자' 날아감
+            # todo: SW도 추가해야 할 듯
+            # right_pos_criteria_exclude = ["SS", "SF", "EP", "EF"] # 세종용
+            right_pos_criteria_exclude = ["SS", "SF", "EPH", "EPT", "EPP", "EFN", "EFQ", "EFO", "EFA", "EFI", "EFR"] # 꼬꼬마용
+
+        else:
+            pos_criteria_include = None
+            left_pos_criteria_exclude = None
+            right_pos_criteria_exclude = None
+
+        # 전처리된 모든 코퍼스를 읽어서 every_sentence 리스트에 담기
+        list_of_files = os.listdir(self.corpus_directory_path)
+        for entry in list_of_files:
+            if fnmatch.fnmatch(entry, "*.txt"):
+                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
+                every_sentence.append(line_list)
+
+        word_list = Tools.get_lines_utf8(word_list_path)
+        for item in word_list:
+            word_and_frequency = item.split("\t")
+            word = word_and_frequency[0]
+            frequency = word_and_frequency[1]
+            pair = word + "/" + pos_setting  # 형태소/품사 pair
+            if int(frequency) < freq_setting:
+                break
+
+            # 각각의 형태소마다 전처리된 코퍼스 전체를 순회하면서 해당 형태소가 등장하는 문맥 추출
+            flag = 0
+            col_hash = dict()
+            for each_file in every_sentence:
+                title = "ITDaily"
+                for line_number, line in enumerate(each_file):
+                    # if line_number == 0:
+                    #    title = line
+                    # else:
+                    raw = line.split("\t")[0]
+                    analyzed = line.split("\t")[1]
+                    morphemes = analyzed.split(" ")
+                    for index, morpheme in enumerate(morphemes):
+                        if flag == 1:
+                            flag = 0
+                            break
+                        if morpheme == pair:
+
+                            # 형태소 기준 왼쪽 윈도우 탐색
+                            mover = index - 1
+                            while mover >= 0:
+                                pre_morpheme_pos = get_pos(morphemes[mover])
+                                if find_match(pre_morpheme_pos, left_pos_criteria_exclude) is True:
+                                    break
+                                if find_match(pre_morpheme_pos, pos_criteria_include) is False:
+                                    reserved_for_left.append(morphemes[mover])
+
+                                    # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
+                                    # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
+                                    if get_morph(pair) == get_morph(morphemes[mover]):
+                                        flag = 1
+                                else:
+                                    reserved_for_left.append(morphemes[mover])
+                                    break
+                                mover -= 1
+
+                            # 형태소 기준 오른쪽 윈도우 탐색
+                            mover = index + 1
+                            while mover <= len(morphemes) - 1:
+                                post_morpheme_pos = get_pos(morphemes[mover])
+                                if find_match(post_morpheme_pos, right_pos_criteria_exclude) is True:
+                                    break
+                                if find_match(post_morpheme_pos, pos_criteria_include) is False:
+                                    reserved_for_right.append(morphemes[mover])
+
+                                    # 한 문장에 목표 단어가 2회 이상 등장하는 경우, 빈도수가 중복으로 쌓이는 것을 방지하기 위함
+                                    # ex) 는/JX + 국민/NNG + 주권/NNG + ·/SP + 국민/NNG + 경제/NNG + ·/SP + 국민/NNG.. 3
+                                    if get_morph(pair) == get_morph(morphemes[mover]):
+                                        flag = 1
+                                else:
+                                    reserved_for_right.append(morphemes[mover])
+                                    break
+                                mover += 1
+
+                            # 태그 변환  ex) NNG -> 명사
+                            if tag_conversion == 1:
+                                self.build_tag_dictionary()
+                                for idx, value in enumerate(reserved_for_left):
+                                    tag = get_pos(value)
+                                    try:
+                                        tag = self.tag_dict[tag]
+                                        reserved_for_left[idx] = get_morph(value) + "/" + tag
+                                    except KeyError:
+                                        print(value + "\n---")
+
+                                for idx, value in enumerate(reserved_for_right):
+                                    tag = get_pos(value)
+                                    try:
+                                        tag = self.tag_dict[tag]
+                                        reserved_for_right[idx] = get_morph(value) + "/" + tag
+                                    except KeyError:
+                                        print(value + "\n---")
+
+                                tag = get_pos(morpheme)
+                                tag = self.tag_dict[tag]
+                                morpheme = get_morph(morpheme) + "/" + tag
+
+                            # 스트링 만들기  ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
+                            if len(reserved_for_left) > 0 or len(reserved_for_right) > 0:
+                                var_gram = ""  # variable-gram, derived from bi-gram or tri-gram
+                                for morph in reversed(reserved_for_left):
+                                    var_gram += morph + " + "  # ex) 꿀/NNG +
+                                if len(reserved_for_right) == 0:
+                                    var_gram += morpheme  # ex) 꿀/NNG + 먹/VV
+                                else:
+                                    var_gram += morpheme + " + "  # ex) 꿀/NNG + 먹/VV +
+                                for idx, morph in enumerate(reserved_for_right):
+                                    if idx == len(reserved_for_right) - 1:
+                                        var_gram += morph  # ex) 꿀/NNG + 먹/VV + 은/ETM + 벙어리/NNG
+                                    else:
+                                        var_gram += morph + " + "  # ex) 꿀/NNG + 먹/VV + 은/ETM +
+
+                                if var_gram in col_hash:
+                                    # key: 스트링 유형의 var_gram = 특정 연어
+                                    # value: 리스트 유형 [빈도수, 원문1, 원문2, 원문3...]
+                                    col_hash.get(var_gram)[0] += 1
+                                    col_hash.get(var_gram).append(raw + " <출처: " + title + ">")
+                                else:
+                                    col_hash[var_gram] = [1, raw + " <출처: " + title + ">"]
+
+                            reserved_for_left.clear()
+                            reserved_for_right.clear()
+
+            # 빈도 수가 높은 순서로 정렬
+            sorted_hash = sorted(col_hash.items(), key=operator.itemgetter(1))
+
+            # 특정 형태소에 대하여 추출된 연어 쓰기
+            if pos_setting == "VV" or pos_setting == "VA":
+                word = word + "다"
+
+            col_writing_file = open(self.write_path + "/" + word + ".txt", "w", encoding="utf-8")
+
+            example_dir = example_path + "/" + word
+            if os.path.isdir(example_dir) is False:
+                os.mkdir(example_dir)
+
+            flag = 0
+            for idx, collocation in enumerate(reversed(sorted_hash)):
+
+                if collocation[1][0] == 1:  # 빈도수 1인 경우 쓰지 않음
+                    break
+                if idx >= 100:
+                    flag = 1
+
+                col_writing_file.write(str(collocation[0]) + "\t" + str(collocation[1][0]) + "\n")
+
+                if flag == 0:
+                    example_writing_file = open(example_dir + "/" + str(idx + 1) + ".txt", "w", encoding="utf-8")
+                    for i, example in enumerate(collocation[1]):  # collocation[1] = [frequency, example1, example2...]
+                        if i == 0:
+                            continue  # collocation[1]이 빈도수이기 때문
+                        else:
+                            example_writing_file.write(example + "\n")
+                    example_writing_file.close()
+
+            col_writing_file.close()
 
     # 가변 윈도우로 한 번에 collocation 추출
     # word_list_path: 추출하고자 하는 품사의 출현빈도 파일 (POS_출현빈도.txt)
     # pos_setting: 추출하고자 하는 품사
     # freq_setting: 설정 빈도수 이상으로만 추출
     # tag_conversion: 태그 변환 여부 (NNG -> 명사) 설정, tag_conversion == 1이면 변환
+    # self.corpus_directory_path: preprocessed/현대문어_형태분석_전처리(형태소만 추출)
+    # self.write_path: results/POS (빈도수 n 이상)
     def find_collocation_with_variable_window_at_once(self, word_list_path, pos_setting, freq_setting, tag_conversion):
 
         col_hash = dict()
@@ -74,7 +264,9 @@ class KoreanCollocationExtractor:
             # VV, VA 추출용: 일반 명사, 고유 명사, 의존 명사
             pos_criteria_include = ["NNG", "NNP", "NNB"]  # 해당 품사를 스트링에 추가한 후 윈도우 탐색 정지
             left_pos_criteria_exclude = ["SS"]  # 해당 품사를 스트링에 추가하지 않고 윈도우 탐색 정지
-            right_pos_criteria_exclude = ["SS", "SF", "EP", "EF"]  # todo: EF(종결어미)도 추가? ~ㄴ다, ~다 없앨 수 있으나, '가자'에 '자' 날아감
+            # EF(종결어미)도 추가? ~ㄴ다, ~다 없앨 수 있으나, '가자'에 '자' 날아감
+            # todo: SW도 추가해야 할 듯
+            right_pos_criteria_exclude = ["SS", "SF", "EP", "EF"]
 
         else:
             pos_criteria_include = None
@@ -182,6 +374,7 @@ class KoreanCollocationExtractor:
                                         var_gram += morph + " + "  # ex) 꿀/NNG + 먹/VV + 은/ETM +
 
                                 if var_gram in col_hash:
+                                    # todo: col_hash에다 원문 담은 리스트 추가?
                                     col_hash[var_gram] += 1
                                 else:
                                     col_hash[var_gram] = 1
@@ -198,6 +391,8 @@ class KoreanCollocationExtractor:
                 w_file = open(self.write_path + "/" + word + ".txt", "w", encoding="utf-8")
 
             for term in reversed(sorted_hash):
+                if term[1] == 1:
+                    break
                 w_file.write(str(term[0]) + "\t" + str(term[1]) + "\n")
 
             w_file.close()
@@ -235,69 +430,9 @@ class KoreanCollocationExtractor:
             w_file.write(str(term[0]) + "\t" + str(term[1]) + "\n")
         w_file.close()
 
-    def collect_examples_at_once_numpy(self, collocation_path):
-
-        # examples = []
-        every_sentence = []
-        # list_of_collocations = []
-
-        # 모든 문장 준비
-        list_of_files = os.listdir(self.corpus_directory_path)
-        for entry in list_of_files:
-            if fnmatch.fnmatch(entry, "*.txt"):
-                line_list = Tools.get_lines_utf8(self.corpus_directory_path + "/" + entry)
-                every_sentence.append(line_list)
-
-        list_of_files = os.listdir(collocation_path)
-        for entry in list_of_files:
-            if fnmatch.fnmatch(entry, "*.txt"):
-                file = open(collocation_path + "/" + entry, "r", encoding="utf-8")
-
-                list_of_collocations = []
-
-                for idx, line in enumerate(file):
-                    if idx == 50:
-                        break
-                    if line.endswith("\n"):
-                        line = line.strip("\n")
-                    collocation = line.split("\t")[0]
-                    list_of_collocations.append(collocation)
-                file.close()
-
-                write_dir = self.write_path + "/" + entry.rstrip(".txt")
-                os.mkdir(write_dir)
-
-                for idx, collocation in enumerate(list_of_collocations):
-                    collocation = Tools.add_backslash(collocation)
-                    # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
-                    # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
-                    re_string = r"(.* " + collocation + "|^" + collocation + ").*"
-                    regex = re.compile(re_string)
-                    examples = []
-
-                    for each_file in every_sentence:
-                        for line in each_file:
-                            line_pair = line.split("\t")
-                            raw_text = line_pair[0]
-                            analyzed_text = line_pair[1]
-                            if regex.match(analyzed_text):
-                                examples.append(raw_text)
-
-                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
-                    w_file = open(write_path, "w", encoding="utf-8")
-
-                    for example in examples:
-                        w_file.write(example + "\n")
-                    w_file.close()
-
-                    # examples.clear()
-                # list_of_collocations.clear()
-
     def collect_examples_at_once_different_allocation(self, collocation_path):
 
-        # examples = []
         every_sentence = []
-        # list_of_collocations = []
 
         # 모든 문장 준비
         list_of_files = os.listdir(self.corpus_directory_path)
@@ -322,6 +457,8 @@ class KoreanCollocationExtractor:
                 file.close()
 
                 write_dir = self.write_path + "/" + entry.rstrip(".txt")
+                if os.path.isdir(write_dir) is True:
+                    continue
                 os.mkdir(write_dir)
 
                 for idx, collocation in enumerate(list_of_collocations):
@@ -329,26 +466,28 @@ class KoreanCollocationExtractor:
                     # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
                     # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
                     re_string = r"(.* " + collocation + "|^" + collocation + ").*"
-                    regex = re.compile(re_string)
-                    examples = []
 
-                    for each_file in every_sentence:
-                        for line in each_file:
-                            line_pair = line.split("\t")
-                            raw_text = line_pair[0]
-                            analyzed_text = line_pair[1]
-                            if regex.match(analyzed_text):
-                                examples.append(raw_text)
+                    try:
+                        regex = re.compile(re_string)
+                        examples = []
 
-                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
-                    w_file = open(write_path, "w", encoding="utf-8")
+                        for each_file in every_sentence:
+                            for line in each_file:
+                                line_pair = line.split("\t")
+                                raw_text = line_pair[0]
+                                analyzed_text = line_pair[1]
+                                if regex.match(analyzed_text):
+                                    examples.append(raw_text)
 
-                    for example in examples:
-                        w_file.write(example + "\n")
-                    w_file.close()
+                        write_path = write_dir + "/" + str(idx + 1) + ".txt"
+                        w_file = open(write_path, "w", encoding="utf-8")
 
-                    # examples.clear()
-                # list_of_collocations.clear()
+                        for example in examples:
+                            w_file.write(example + "\n")
+                        w_file.close()
+
+                    except:
+                        print(entry + ": " + str(idx + 1))
 
     def collect_examples_at_once(self, collocation_path):
 
@@ -377,6 +516,8 @@ class KoreanCollocationExtractor:
                 file.close()
 
                 write_dir = self.write_path + "/" + entry.rstrip(".txt")
+                if os.path.isdir(write_dir) is True:
+                    continue
                 os.mkdir(write_dir)
 
                 for idx, collocation in enumerate(list_of_collocations):
@@ -384,22 +525,26 @@ class KoreanCollocationExtractor:
                     # r"(.* 악/NNG \+ 을/JKO \+ 쓰/VV|^악/NNG \+ 을/JKO \+ 쓰/VV).*"
                     # 위처럼 안 하면 '악/NNG'에 '음악/NNG'이 걸리는 사례 발생!
                     re_string = r"(.* " + collocation + "|^" + collocation + ").*"
-                    regex = re.compile(re_string)
 
-                    for each_file in every_sentence:
-                        for line in each_file:
-                            line_pair = line.split("\t")
-                            raw_text = line_pair[0]
-                            analyzed_text = line_pair[1]
-                            if regex.match(analyzed_text):
-                                examples.append(raw_text)
+                    try:  # 정규표현식 전용 기호 때문에 오류 발생
+                        regex = re.compile(re_string)
+                        for each_file in every_sentence:
+                            for line in each_file:
+                                line_pair = line.split("\t")
+                                raw_text = line_pair[0]
+                                analyzed_text = line_pair[1]
+                                if regex.match(analyzed_text):
+                                    examples.append(raw_text)
 
-                    write_path = write_dir + "/" + str(idx + 1) + ".txt"
-                    w_file = open(write_path, "w", encoding="utf-8")
+                        write_path = write_dir + "/" + str(idx + 1) + ".txt"
+                        w_file = open(write_path, "w", encoding="utf-8")
 
-                    for example in examples:
-                        w_file.write(example + "\n")
-                    w_file.close()
+                        for example in examples:
+                            w_file.write(example + "\n")
+                        w_file.close()
+
+                    except:
+                        print(entry)
 
                     examples.clear()
                 list_of_collocations.clear()
@@ -536,6 +681,7 @@ class KoreanCollocationExtractor:
 
         whole_sentence_raw = []
         whole_sentence_analyzed = []
+        flag = 0
 
         list_of_files = os.listdir(self.corpus_directory_path)
 
@@ -545,6 +691,15 @@ class KoreanCollocationExtractor:
                 w_file = open(self.write_path + "/" + entry, "w", encoding="utf-8")
                 line_list = Tools.get_lines_utf16(self.corpus_directory_path + "/" + entry)
                 for line in line_list:
+
+                    # 출처(title) 추출
+                    if re.match(self.bibl, line):
+                        flag = 1
+                    if re.match(self.title, line) and flag == 1:
+                        line = line.strip("\t\t\t\t<title>")
+                        line = line.strip("</title>")
+                        w_file.write(line + "\n")
+
                     if re.match(self.sentence_marker, line):  # 세종 말뭉치의 특성상, 모든 문장 라인은 B로 시작함
                         elements = line.split()  # [0]은 식별번호, [1]은 어절, [2] 이하는 형태소 분석 결과 및 '+' 기호
 
@@ -565,7 +720,7 @@ class KoreanCollocationExtractor:
                         for i in range(0, len(whole_sentence_analyzed)):
                             w_file.write(whole_sentence_analyzed[i])
                             if i < len(whole_sentence_analyzed) - 1:
-                                w_file.write(" + ")
+                                w_file.write(" ")
                         w_file.write("\n")
 
                         whole_sentence_raw.clear()
