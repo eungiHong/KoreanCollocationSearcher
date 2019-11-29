@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>한국어 연어 검색기</title>
+
+<link href="../stylesheets/style.css" rel="stylesheet" type="text/css" media="all" />
+<script src='https://kit.fontawesome.com/a076d05399.js'></script>
+</head>
+
+<body>
+  <div id="wrapper">
+    <div id="menu-wrapper">
+      <div id="menu" class="container">
+        <div id="sub_menu1">
+          <a href="index">한국어 연어 검색기 <i class='fas fa-fish' style='font-size:1em'></i></a>
+        </div>
+        <div id="sub_menu2">
+          <ul>
+            <li class="current_page_item"><a href="index">Home</a></li>
+            <li><a href="about">About</a></li>
+            <!--<li><a href="#">Blog</a></li>-->
+            <!--<li><a href="#">Portfolio</a></li>-->
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+      <!-- end #menu -->
+    </div>
+		<div id="page" class="container2">
+      <div id="content2">
+				<form id="form_box" action="action" method="post">
+          <!-- keywords: text, submit // variable: user_query -->
+          <input id="query" type="text" name="user_query" value="">
+          <input id="button" type="submit" value="검색">
+        </form>
+				<br><br>
+				<!-- 테이블 전시 -->
+				<table id="results"></table>
+				<br>
+				<table id="additional"></table>
+				<p id="no_result"></p>
+			</div>
+		</div>
+	</div>
+	<div id="copyright" class="container">
+    <p>&copy; ehong. All rights reserved. | Design by <a href="http://templated.co" rel="nofollow">TEMPLATED</a>.</p>
+  </div>
+  <script>
+    // 전달 받는 것은 JSON string인데 <%- %>로 본래 데이터 모양(array)을 회복하는 이유는?
+    // JSON.parse가 적용되어 array로 변환되는 듯
+    let flag = <%- flag %>;
+    let colArray = <%- data %>;
+  </script>
+  <script src= "./javascripts/actionScript.js" type="text/javascript"></script>
+</body>
+</html>
