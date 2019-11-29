@@ -1,0 +1,62 @@
+것/NNB + 을/JKO + 가리키/VV	13
+분/NNB + 을/JKO + 가리키/VV + 고/EC + 있/VX	12
+쪽/NNB + 을/JKO + 가리키/VV	8
+턱/NNG + 으로/JKB + 가리키/VV	6
+를/JKO + 가리키/VV	6
+손가락/NNG + 으로/JKB + 가리키/VV	6
+시/NNB + 를/JKO + 가리키/VV + 고/EC + 있/VX	5
+상태/NNG + 를/JKO + 가리키/VV	5
+손/NNG + 으로/JKB + 가리키/VV	5
+사람/NNG + 을/JKO + 가리키/VV + 는/ETM + 것/NNB	5
+을/JKO + 가리키/VV	5
+전체/NNG + 를/JKO + 가리키/VV + 는/ETM + 말/NNG	4
+의자/NNG + 를/JKO + 가리키/VV	4
+것/NNB + 을/JKO + 가리키/VV + 는/ETM + 말/NNG	3
+세계/NNG + 를/JKO + 가리키/VV	3
+현상/NNG + 을/JKO + 가리키/VV	3
+자리/NNG + 를/JKO + 가리키/VV	3
+사실/NNG + 을/JKO + 가리키/VV	3
+남편/NNG + 을/JKO + 가리키/VV + 는/ETM + 말/NNG	2
+서방/NNG + 을/JKO + 가리키/VV + 어/EC + 압바/NNG	2
+영구/NNP + 를/JKO + 가리키/VV	2
+정오/NNG + 를/JKO + 가리키/VV + 고/EC + 있/VX	2
+것/NNB + 을/JKO + 가리키/VV + 는/ETM	2
+등/NNB + 을/JKO + 가리키/VV	2
+범주/NNG + 를/JKO + 가리키/VV + 는/ETM + 용어/NNG	2
+지역/NNG + 을/JKO + 가리키/VV + 는/ETM + 것/NNB	2
+부루도꾸/NNG + 를/JKO + 가리키/VV	2
+집단/NNG + 을/JKO + 가리키/VV	2
+소파/NNG + 를/JKO + 가리키/VV	2
+정도/NNG + 를/JKO + 가리키/VV	2
+교실/NNG + 을/JKO + 가리키/VV	2
+시/NNB + 를/JKO + 가리키/VV	2
+곳/NNG + 을/JKO + 가리키/VV	2
+를/JKO + 가리키/VV + 는/ETM + 말/NNG	2
+손/NNG + 으로/JKB + 가리키/VV + 며/EC + 묻/VV	2
+상태/NNG + 를/JKO + 가리키/VV + 는/ETM + 말/NNG	2
+태도/NNG + 를/JKO + 가리키/VV	2
+분/NNB + 을/JKO + 가리키/VV	2
+끝/NNG + 을/JKO + 가리키/VV	2
+문학/NNG + 을/JKO + 가리키/VV + 어/EC	2
+해/NNG + 를/JKO + 가리키/VV + 는/ETM + 일곱/NR + 개/NNB	2
+현상/NNG + 을/JKO + 가리키/VV + 어/EC	2
+폐단/NNG + 을/JKO + 가리키/VV	2
+안쪽/NNG + 을/JKO + 가리키/VV	2
+대용어/NNG + 가/JKS + 가리키/VV + 는/ETM + 부분/NNG	2
+사람/NNG + 을/JKO + 가리키/VV + 는/ETM + 말/NNG	2
+일본/NNP + 을/JKO + 가리키/VV + 어/EC	2
+턱/NNG + 으로/JKB + 가리키/VV + 며/EC + 아무런/MM + 대꾸/NNG	2
+사람/NNG + 을/JKO + 가리키/VV + 어/EC + 주/VX	2
+을/JKO + 가리키/VV + 는/ETM + 말/NNG	2
+인간/NNG + 을/JKO + 가리키/VV	2
+것/NNB + 을/JKO + 가리키/VV + 는/ETM + 것/NNB	2
+분/NNB + 을/JKO + 가리키/VV + 고/EC + 있/VX + 는/ETM + 것/NNB	2
+자/NNG + 를/JKO + 가리키/VV	2
+소파/NNG + 를/JKO + 가리키/VV + 며/EC + 말/NNG	2
+의식/NNG + 을/JKO + 가리키/VV	2
+시/NNG + 를/JKO + 가리키/VV + 고/EC + 있/VX	2
+사람/NNG + 을/JKO + 가리키/VV	2
+시간/NNG + 을/JKO + 가리키/VV + 는/ETM + 시계/NNG	2
+바람둥이/NNG + 를/JKO + 가리키/VV + 는/ETM + 새롭/VA + ᆫ/ETM + 은어/NNG	2
+다리/NNG + 를/JKO + 가리키/VV	2
+안/NNG + 을/JKO + 가리키/VV	2
